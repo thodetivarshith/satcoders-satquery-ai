@@ -1,0 +1,11 @@
+# Advanced Face Detection & Recognition — Task 5 (SAM AI Technologies)
+# Install with: pip install -r requirements.txt
+#
+# dlib-bin ships prebuilt wheels (Windows/Linux/Mac) so no C++ compiler or
+# CMake is needed — this avoids the usual dlib build headaches on Windows.
+
+dlib-bin==20.0.1
+face_recognition_models==0.3.0
+face_recognition==1.3.0
+opencv-contrib-python==4.10.0.84
+numpy>=1.26,<3.0
