@@ -2,235 +2,470 @@
 """
 train_geochat.py
 
-Fine-tunes GeoChat (LoRA) on BigEarthNet.txt using bigearth_dataset.py
-and config.py. Written for Google Colab free tier (single T4 GPU,
-~15GB VRAM, sessions can disconnect at any time) — so it:
-  - Mounts Google Drive and saves ALL checkpoints there, not to Colab's
-    local disk (local disk is wiped when the session ends/disconnects)
-  - Checkpoints frequently (every `save_every_n_steps`, from config.py)
-    so a dropped session loses minutes, not hours
-  - Auto-resumes from the latest checkpoint on Drive if one exists
-  - Uses LoRA + bf16/fp16 + gradient accumulation to fit T4's memory
+Fine-tune GeoChat-7B with QLoRA on the prepared BigEarthNet GeoChat dataset.
 
-===========================================================================
-COLAB SETUP (run these in a Colab cell before this script):
-===========================================================================
-    # 1. Runtime > Change runtime type > T4 GPU
+Expected Colab environment:
+    /content/satcoders-satquery-ai/
+        models/
+            geochat_finetuned/
+                images/
+                    *.jpg
+                conversations.json
+                config.py
+                train_geochat.py
+                GeoChat/
 
-    # 2. Mount Drive
-    from google.colab import drive
-    drive.mount('/content/drive')
-
-    # 3. Install deps
-    !pip install torch transformers peft accelerate rasterio bitsandbytes -q
-
-    # 4. Put BigEarthNet.txt data + this repo under Drive, e.g.:
-    #    /content/drive/MyDrive/satquery/data/bigearthnet/
-    #    /content/drive/MyDrive/satquery/checkpoints/
-    #    then point config.py's paths there (or override with env vars
-    #    BIGEARTH_ROOT / BIGEARTH_ANNOTATIONS before importing config)
-
-    # 5. Run:
-    !python train_geochat.py
-===========================================================================
+Training:
+    - GeoChat-7B
+    - 4-bit QLoRA
+    - LoRA
+    - Single NVIDIA GPU
+    - FP16
 """
 
-import os
-import time
-import glob
 import importlib
+import os
+import subprocess
+import sys
 
-torch = importlib.import_module("torch")
-DataLoader = importlib.import_module("torch.utils.data").DataLoader
-
-from config import data_config, model_config, train_config
-from bigearth_dataset import BigEarthDataset, collate_fn
+from config import model_config, train_config
 
 
-def _mount_drive_if_colab():
-    """No-op outside Colab. Inside Colab, mounts Drive so checkpoints
-    survive a disconnect. Call this before touching any Drive path."""
+# ============================================================
+# COLAB / DRIVE PATH HELPERS
+# ============================================================
+
+def _mount_drive_if_colab(path: str) -> str:
+    """
+    Mount Google Drive when running in Colab.
+
+    For Colab, checkpoints are redirected to Drive so they
+    survive runtime disconnects.
+    """
+
     try:
-        # Use dynamic imports so local environments and static analyzers do
-        # not require the Colab-only package to be installed.
         importlib.import_module("google.colab")
         drive = importlib.import_module("google.colab.drive")
 
         if not os.path.ismount("/content/drive"):
             drive.mount("/content/drive")
             print("Google Drive mounted.")
-    except ImportError:
-        pass  # not running in Colab — assume local paths are fine
 
+        if path.startswith("/content/drive"):
+            return path
 
-def _pick_device():
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    print("WARNING: No GPU detected — falling back to CPU. This will be "
-          "very slow for GeoChat fine-tuning. Check Runtime > Change "
-          "runtime type > GPU in Colab.")
-    return torch.device("cpu")
-
-
-def _latest_checkpoint(output_dir: str):
-    """Finds the most recent checkpoint under output_dir, or None."""
-    if not os.path.isdir(output_dir):
-        return None
-    ckpts = sorted(
-        glob.glob(os.path.join(output_dir, "checkpoint-*.pt")),
-        key=os.path.getmtime,
-    )
-    return ckpts[-1] if ckpts else None
-
-
-def build_model():
-    """
-    Loads pretrained GeoChat and wraps it with a LoRA adapter.
-
-    NOTE: GeoChat isn't a standard HF AutoModel — you'll likely load it
-    via the repo you cloned in Day-1 setup (huggingface.co/linjie/geochat)
-    rather than `transformers.AutoModel.from_pretrained`. Swap the
-    placeholder loading line below for GeoChat's actual loading API once
-    you've cloned it — the LoRA wrapping and optimizer setup below don't
-    need to change.
-    """
-    # PEFT is optional until LoRA is enabled. Import it dynamically so this
-    # module remains importable in environments where PEFT is not installed.
-    peft = importlib.import_module("peft")
-    LoraConfig = peft.LoraConfig
-    get_peft_model = peft.get_peft_model
-
-    # --- Placeholder: replace with GeoChat's real model-loading call ---
-    # e.g. from geochat.model import GeoChatForConditionalGeneration
-    #      base_model = GeoChatForConditionalGeneration.from_pretrained(
-    #          model_config.pretrained_model_name
-    #      )
-    raise NotImplementedError(
-        "Plug in GeoChat's actual model-loading call here once you've "
-        "cloned github.com/linjie/geochat (or its HF repo) — see the "
-        "docstring above build_model(). Everything else in this script "
-        "(LoRA wrapping, training loop, checkpointing) is ready to go."
-    )
-    # --- end placeholder ---
-
-    if model_config.use_lora:
-        lora_config = LoraConfig(
-            r=model_config.lora_rank,
-            lora_alpha=model_config.lora_alpha,
-            lora_dropout=model_config.lora_dropout,
-            target_modules=model_config.lora_target_modules,
-            bias="none",
+        redirected = os.path.join(
+            "/content/drive/MyDrive/satquery/checkpoints",
+            os.path.basename(path.rstrip("/")),
         )
-        base_model = get_peft_model(base_model, lora_config)
-        base_model.print_trainable_parameters()
 
-    return base_model
+        print(
+            f"Redirecting checkpoint path:\n"
+            f"  {path}\n"
+            f"→ {redirected}"
+        )
+
+        return redirected
+
+    except ImportError:
+        return path
 
 
-def train():
-    _mount_drive_if_colab()
-    device = _pick_device()
-    torch.manual_seed(train_config.seed)
+# ============================================================
+# DATA VALIDATION
+# ============================================================
 
-    os.makedirs(train_config.output_dir, exist_ok=True)
+def _check_prereqs(
+    images_dir: str,
+    conversations_json: str,
+) -> None:
 
-    # -- Data --
-    train_dataset = BigEarthDataset(
-        root_dir=data_config.root_dir,
-        annotations_file=data_config.annotations_file,
-        split="train",
-        split_ids_file=data_config.train_split_file,
-        image_size=data_config.image_size,
-        use_sar=data_config.use_sar,
+    if not os.path.isdir(images_dir):
+        raise FileNotFoundError(
+            f"Image folder not found:\n{images_dir}"
+        )
+
+    if not os.path.isfile(conversations_json):
+        raise FileNotFoundError(
+            f"Conversations JSON not found:\n{conversations_json}"
+        )
+
+    image_files = [
+        f
+        for f in os.listdir(images_dir)
+        if f.lower().endswith(
+            (".jpg", ".jpeg", ".png")
+        )
+    ]
+
+    if not image_files:
+        raise RuntimeError(
+            f"No images found in:\n{images_dir}"
+        )
+
+    print(
+        f"Found {len(image_files)} images in:\n"
+        f"{images_dir}"
     )
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=train_config.batch_size,
-        shuffle=True,
-        collate_fn=collate_fn,
-        num_workers=2,  # Colab free tier has limited CPU — keep this low
-        pin_memory=(device.type == "cuda"),
-    )
-    print(f"Train samples: {len(train_dataset)}")
 
-    # -- Model --
-    model = build_model().to(device)
-
-    dtype = torch.bfloat16 if train_config.mixed_precision == "bf16" else torch.float16
-    use_amp = device.type == "cuda"
-
-    optimizer = torch.optim.AdamW(
-        [p for p in model.parameters() if p.requires_grad],
-        lr=train_config.learning_rate,
-        weight_decay=train_config.weight_decay,
+    print(
+        f"Found conversations file:\n"
+        f"{conversations_json}"
     )
 
-    # -- Resume from latest checkpoint, if any (Colab session may have dropped) --
-    start_step = 0
-    latest_ckpt = _latest_checkpoint(train_config.output_dir)
-    if latest_ckpt is not None:
-        print(f"Resuming from checkpoint: {latest_ckpt}")
-        ckpt = torch.load(latest_ckpt, map_location=device)
-        model.load_state_dict(ckpt["model_state_dict"])
-        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
-        start_step = ckpt["step"]
-    else:
-        print("No checkpoint found — starting fresh.")
 
-    model.train()
-    global_step = start_step
-    accum_steps = train_config.gradient_accumulation_steps
-    t0 = time.time()
+# ============================================================
+# BUILD GE0CHAT TRAINING COMMAND
+# ============================================================
 
-    for epoch in range(train_config.num_epochs):
-        for batch_idx, batch in enumerate(train_loader):
-            pixel_values = batch["pixel_values"].to(device)
+def build_train_command(
+    geochat_repo_path: str,
+    images_dir: str,
+    conversations_json: str,
+    output_dir: str,
+) -> list:
 
-            with torch.autocast(device_type=device.type, dtype=dtype, enabled=use_amp):
-                # --- Placeholder forward/loss call ---
-                # Replace with GeoChat's actual forward signature, e.g.:
-                # outputs = model(pixel_values=pixel_values,
-                #                  prompts=batch["prompt"],
-                #                  labels=batch["answer"])
-                # loss = outputs.loss
-                raise NotImplementedError(
-                    "Plug in GeoChat's forward()/loss call here — depends "
-                    "on its exact API once cloned. pixel_values, "
-                    "batch['prompt'], batch['answer'] are already prepared "
-                    "for you by bigearth_dataset.py."
-                )
-                # --- end placeholder ---
+    train_script = os.path.join(
+        geochat_repo_path,
+        "geochat",
+        "train",
+        "train_mem.py",
+    )
 
-            loss = loss / accum_steps
-            loss.backward()
+    if not os.path.isfile(train_script):
+        raise FileNotFoundError(
+            f"GeoChat training script not found:\n"
+            f"{train_script}\n\n"
+            f"Expected GeoChat repository at:\n"
+            f"{geochat_repo_path}"
+        )
 
-            if (batch_idx + 1) % accum_steps == 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                optimizer.step()
-                optimizer.zero_grad()
-                global_step += 1
+    cmd = [
+        sys.executable,
+        train_script,
 
-                if global_step % train_config.logging_every_n_steps == 0:
-                    elapsed = time.time() - t0
-                    print(f"epoch={epoch} step={global_step} "
-                          f"loss={loss.item() * accum_steps:.4f} "
-                          f"elapsed={elapsed:.0f}s")
+        # ----------------------------------------------------
+        # MODEL
+        # ----------------------------------------------------
 
-                if global_step % train_config.save_every_n_steps == 0:
-                    ckpt_path = os.path.join(
-                        train_config.output_dir, f"checkpoint-{global_step}.pt"
-                    )
-                    torch.save({
-                        "step": global_step,
-                        "model_state_dict": model.state_dict(),
-                        "optimizer_state_dict": optimizer.state_dict(),
-                    }, ckpt_path)
-                    print(f"Saved checkpoint: {ckpt_path}")
+        "--model_name_or_path",
+        model_config.pretrained_model_name,
 
-    final_path = os.path.join(train_config.output_dir, "best.pt")
-    torch.save({"step": global_step, "model_state_dict": model.state_dict()}, final_path)
-    print(f"Training complete. Final model: {final_path}")
+        "--version",
+        "v1",
 
+        # ----------------------------------------------------
+        # DATA
+        # ----------------------------------------------------
+
+        "--data_path",
+        conversations_json,
+
+        "--image_folder",
+        images_dir,
+
+        # ----------------------------------------------------
+        # VISION TOWER
+        # ----------------------------------------------------
+
+        "--vision_tower",
+        "openai/clip-vit-large-patch14-336",
+
+        "--mm_projector_type",
+        "mlp2x_gelu",
+
+        "--mm_vision_select_layer",
+        "-2",
+
+        "--mm_use_im_start_end",
+        "False",
+
+        "--mm_use_im_patch_token",
+        "False",
+
+        "--image_aspect_ratio",
+        "pad",
+
+        # ----------------------------------------------------
+        # QLORA / LORA
+        # ----------------------------------------------------
+
+        "--lora_enable",
+        "True",
+
+        "--bits",
+        "4",
+
+        # ----------------------------------------------------
+        # PRECISION
+        # ----------------------------------------------------
+
+        "--fp16",
+        "True",
+
+        # ----------------------------------------------------
+        # OUTPUT
+        # ----------------------------------------------------
+
+        "--output_dir",
+        output_dir,
+
+        # ----------------------------------------------------
+        # TRAINING
+        # ----------------------------------------------------
+
+        "--num_train_epochs",
+        str(train_config.num_epochs),
+
+        "--per_device_train_batch_size",
+        str(train_config.batch_size),
+
+        "--per_device_eval_batch_size",
+        str(train_config.eval_batch_size),
+
+        "--gradient_accumulation_steps",
+        str(
+            train_config.gradient_accumulation_steps
+        ),
+
+        # ----------------------------------------------------
+        # OPTIMIZER / LR
+        # ----------------------------------------------------
+
+        "--learning_rate",
+        str(train_config.learning_rate),
+
+        "--weight_decay",
+        str(train_config.weight_decay),
+
+        "--warmup_ratio",
+        str(train_config.warmup_ratio),
+
+        "--lr_scheduler_type",
+        "cosine",
+
+        # ----------------------------------------------------
+        # EVALUATION
+        # ----------------------------------------------------
+
+        "--evaluation_strategy",
+        "no",
+
+        # ----------------------------------------------------
+        # CHECKPOINTS
+        # ----------------------------------------------------
+
+        "--save_strategy",
+        "steps",
+
+        "--save_steps",
+        str(train_config.save_every_n_steps),
+
+        "--save_total_limit",
+        "2",
+
+        # ----------------------------------------------------
+        # LOGGING
+        # ----------------------------------------------------
+
+        "--logging_steps",
+        str(train_config.logging_every_n_steps),
+
+        "--report_to",
+        "none",
+
+        # ----------------------------------------------------
+        # MEMORY
+        # ----------------------------------------------------
+
+        "--gradient_checkpointing",
+        "True",
+
+        "--lazy_preprocess",
+        "True",
+
+        "--model_max_length",
+        str(model_config.max_text_length),
+
+        # ----------------------------------------------------
+        # DATALOADER
+        # ----------------------------------------------------
+
+        "--dataloader_num_workers",
+        "2",
+    ]
+
+    return cmd
+
+
+# ============================================================
+# TRAIN
+# ============================================================
+
+def train() -> None:
+
+    # --------------------------------------------------------
+    # CHECK ENVIRONMENT
+    # --------------------------------------------------------
+
+    print("=" * 70)
+    print("GE0CHAT BIGEARTHNET QLORA TRAINING")
+    print("=" * 70)
+
+    # --------------------------------------------------------
+    # CHECKPOINT DIRECTORY
+    # --------------------------------------------------------
+
+    output_dir = _mount_drive_if_colab(
+        train_config.output_dir
+    )
+
+    os.makedirs(
+        output_dir,
+        exist_ok=True
+    )
+
+    # --------------------------------------------------------
+    # DATA PATHS
+    # --------------------------------------------------------
+
+    images_dir = os.environ.get(
+        "GEOCHAT_IMAGES_DIR",
+        "/content/satcoders-satquery-ai/models/geochat_finetuned/images",
+    )
+
+    conversations_json = os.environ.get(
+        "GEOCHAT_CONVERSATIONS_JSON",
+        "/content/satcoders-satquery-ai/models/geochat_finetuned/conversations.json",
+    )
+
+    # --------------------------------------------------------
+    # VALIDATE DATA
+    # --------------------------------------------------------
+
+    _check_prereqs(
+        images_dir,
+        conversations_json,
+    )
+
+    # --------------------------------------------------------
+    # GEOCHAT REPOSITORY
+    # --------------------------------------------------------
+
+    geochat_repo_path = model_config.geochat_repo_path
+
+    print()
+    print("GeoChat repository:")
+    print(geochat_repo_path)
+
+    print()
+    print("Model:")
+    print(model_config.pretrained_model_name)
+
+    print()
+    print("Images:")
+    print(images_dir)
+
+    print()
+    print("Conversations:")
+    print(conversations_json)
+
+    print()
+    print("Checkpoint output:")
+    print(output_dir)
+
+    # --------------------------------------------------------
+    # BUILD COMMAND
+    # --------------------------------------------------------
+
+    cmd = build_train_command(
+        geochat_repo_path=geochat_repo_path,
+        images_dir=images_dir,
+        conversations_json=conversations_json,
+        output_dir=output_dir,
+    )
+
+    print()
+    print("=" * 70)
+    print("TRAINING COMMAND")
+    print("=" * 70)
+
+    print(
+        " ".join(cmd)
+    )
+
+    print()
+    print("=" * 70)
+    print("STARTING TRAINING")
+    print("=" * 70)
+
+    # --------------------------------------------------------
+    # RUN TRAINING
+    # --------------------------------------------------------
+
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    assert process.stdout is not None
+
+    for line in process.stdout:
+        print(
+            line,
+            end=""
+        )
+
+    process.wait()
+
+    # --------------------------------------------------------
+    # RESULT
+    # --------------------------------------------------------
+
+    if process.returncode != 0:
+
+        print()
+        print("=" * 70)
+        print("TRAINING FAILED")
+        print("=" * 70)
+
+        print(
+            f"train_mem.py exited with code "
+            f"{process.returncode}."
+        )
+
+        print()
+        print(
+            "Check the error printed above."
+        )
+
+        sys.exit(
+            process.returncode
+        )
+
+    print()
+    print("=" * 70)
+    print("TRAINING COMPLETE")
+    print("=" * 70)
+
+    print(
+        f"LoRA checkpoint saved to:\n"
+        f"{output_dir}"
+    )
+
+    print()
+    print(
+        "Next step: merge/use the LoRA adapter "
+        "with the GeoChat base checkpoint for inference."
+    )
+
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
     train()

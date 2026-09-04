@@ -6,3 +6,22 @@ venv/
 node_modules/
 dist/
 *.log
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Large datasets
+data_processing/BigEarthNet/
+
+# GeoChat dataset/images
+models/geochat_finetuned/images/
+models/geochat_finetuned/*.zip
+models/geochat_finetuned/checkpoints/
+
+# Test/generated images
+test_patch_rgb.jpg
+test_first_patch_v2.jpg
+
+# Local environment / generated files
+*.pkl

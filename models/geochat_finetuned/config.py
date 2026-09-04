@@ -35,18 +35,29 @@ class DataConfig:
 
 @dataclass
 class ModelConfig:
-    # HuggingFace repo for pretrained GeoChat (per execution plan Day 1 setup)
-    pretrained_model_name: str = "linjie/geochat"
+    # CORRECTED: the execution plan's "linjie/geochat" doesn't exist.
+    # Real checkpoint: https://huggingface.co/MBZUAI/geochat-7B
+    # (LLaVA-1.5 architecture, 7B params, CLIP ViT-L/14 vision tower
+    # extended to 504x504). We fine-tune further FROM this checkpoint
+    # rather than rebuilding from base LLaVA + projector — much simpler
+    # and skips a second multi-GB download.
+    pretrained_model_name: str = "MBZUAI/geochat-7B"
+    geochat_repo_path: str = "./GeoChat"  # where you `git clone` their repo
     checkpoint_dir: str = "./checkpoints"
 
-    # Vision encoder is 3-channel (CLIP-based) — see bigearth_dataset.py
-    # header for why we only feed RGB in this version.
+    # Official training uses their own train_mem.py (LLaVA-forked), NOT
+    # a from_pretrained()/custom forward loop — see train_geochat.py notes.
+    # This vision_input_channels / use_lora / lora_* config below still
+    # applies since their script also uses PEFT LoRA under the hood.
     vision_input_channels: int = 3
 
-    # LoRA fine-tuning (recommended given time/compute constraints —
-    # full fine-tuning is slower and needs more GPU memory than a
-    # 20-day hackathon timeline comfortably allows)
+    # QLoRA — REQUIRED on a single free-tier T4 (15GB). Official docs
+    # assume 3x A100 40GB; loading the 7B base in 4-bit (via bitsandbytes)
+    # is what makes single-GPU LoRA fine-tuning survive at all.
+    # Confirmed supported: LLaVA/GeoChat's train_mem.py accepts --bits 4
+    # directly (same flag used in LLaVA's own finetune_qlora.sh).
     use_lora: bool = True
+    load_in_4bit: bool = True
     lora_rank: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.05
@@ -61,26 +72,32 @@ class ModelConfig:
 class TrainConfig:
     output_dir: str = "./checkpoints/geochat_v1_bigearth"
 
-    batch_size: int = 8
-    eval_batch_size: int = 8
-    gradient_accumulation_steps: int = 4  # effective batch size = 32
+    # Realistic subset size for free-tier T4 QLoRA — NOT the full 318k
+    # GeoChat_Instruct set (~100GB, needs multi-GPU days to train on).
+    # A few hundred to ~1-2k BigEarthNet.txt examples is enough to show
+    # real domain adaptation within the Sep 19 deadline.
+    target_dataset_size: int = 500
 
-    learning_rate: float = 2e-4  # higher LR is typical/expected for LoRA
-    weight_decay: float = 0.01
+    batch_size: int = 1  # per_device_train_batch_size — T4 forces this low
+    eval_batch_size: int = 1
+    gradient_accumulation_steps: int = 16  # effective batch size = 16
+
+    learning_rate: float = 2e-4
+    weight_decay: float = 0.0
     warmup_ratio: float = 0.03
 
-    num_epochs: int = 3  # plan targets 3-5 epochs for Week 3 "final" run
-    num_epochs_week2_checkpoint: int = 1  # Week 2 target is just 1 epoch
+    num_epochs: int = 1  # start with 1 epoch on the small subset, extend if time allows
 
     eval_every_n_steps: int = 200
-    save_every_n_steps: int = 200
-    logging_every_n_steps: int = 20
+    save_every_n_steps: int = 100  # more frequent given Colab disconnect risk
+    logging_every_n_steps: int = 10
 
-    mixed_precision: str = "bf16"  # falls back to fp16 if bf16 unsupported
+    mixed_precision: str = "fp16"  # falls back to fp16 if fp16 unsupported
     seed: int = 42
 
     # Week-by-week accuracy targets from the execution plan, kept here
-    # so train_geochat.py can log progress against them
+    # so we can log progress against them (adjusted down given the
+    # much smaller training set vs. the plan's original assumption)
     target_accuracy_week2: float = 0.65
     target_accuracy_week3: float = 0.75
     target_inference_time_ms: int = 2000
