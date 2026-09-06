@@ -1,0 +1,92 @@
+[
+  {
+    "image": "S2B_MSIL2A_20170914T093029_N9999_R136_T34TEP_51_04.jpg",
+    "question": "<image>\nDescribe the image, specifying the region, climate, and landscape features.",
+    "ground_truth": "This satellite image, captured during the fall season in Serbia, showcases a predominantly agricultural landscape within the \"temperate, no dry season, hot summer\" climate zone. The largest area is arable land, spanning approximately 752,000 square meters. It is bordered by complex cultivation patterns, which cover around 528,000 square meters and are distributed across two individual areas of 313,000 and 215,000 square meters. The arable land also shares a border with urban fabric, which occupies about 154,000 square meters. The complex cultivation patterns are adjacent to both urban fabric and a marginal area of land principally occupied by agriculture with significant areas of natural vegetation, covering less than 5% of the total area, approximately 72,000 square meters. The landscape presents a mosaic of agricultural areas, including arable land and complex cultivation patterns, interspersed with a smaller patch of urban fabric, reflecting the region's mixed agricultural and artificial surface characteristics.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2B_MSIL2A_20170927T094019_N9999_R036_T35ULB_51_06.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the fall season in Lithuania, showcases a predominantly agricultural landscape within the \"cold, no dry season, warm summer\" climate zone. The largest area is arable land, spanning approximately 1,059,000 square meters, and is distributed over two individual areas, one larger (~805,000 sqm) and one smaller (~254,000 sqm). The arable land borders with complex cultivation patterns (~229,000 sqm), transitional woodland or shrubs (~104,000 sqm), and pastures, which cover a marginal area of less than 5% (72,000 sqm) of the total area. The complex cultivation patterns and transitional woodland or shrubs are adjacent to the arable land, while the pastures are also next to the arable land, highlighting the diverse and patchy nature of the region's agricultural and forest and seminatural areas.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2A_MSIL2A_20180419T101031_N9999_R022_T34VDN_85_35.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the spring season in Finland, showcases a landscape entirely dominated by marine waters (~1,440,000 sqm), with no other features visible. The image presents a vast expanse of water, set within the \"cold, no dry season, warm summer\" climate zone.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2B_MSIL2A_20170817T101019_N9999_R022_T34WFS_37_88.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the summer in Finland, showcases a predominantly forested landscape within the \"cold, no dry season, cold summer\" climate zone. The dominant feature is the expansive coniferous forest, covering approximately 833,000 square meters, which is distributed across three areas, including one large area of 807,000 square meters and two marginal areas. The coniferous forest shares a border with a substantial mixed forest, spanning around 601,000 square meters, which is comprised of three distinct areas: a large section of 455,000 square meters, a smaller area of 130,000 square meters, and a marginal patch. The mixed forest is adjacent to a small transitional woodland or shrub area, which accounts for less than 5% of the total area, covering 72,000 square meters. The coniferous forest borders the mixed forest, and the mixed forest is adjacent to the transitional woodland or shrub, indicating a complex and varied forest ecosystem.",
+    "prediction": "[0.0, 0.0, 0.9, 0.99]"
+  },
+  {
+    "image": "S2A_MSIL2A_20170717T113321_N9999_R080_T29UPV_43_88.jpg",
+    "question": "<image>\nDescribe the image, specifying the region, climate, and landscape features.",
+    "ground_truth": "This satellite image, captured during the summer season in Ireland, showcases a predominantly agricultural landscape within the \"temperate, no dry season, warm summer\" climate zone. The landscape is dominated by pastures (~890,000 sqm), which are distributed across two areas: a large expanse of about 803,000 square meters and a smaller patch of around 87,000 square meters. These pastures border arable land (~550,000 sqm), indicating a diverse and dynamic agricultural environment.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2A_MSIL2A_20170803T094031_N9999_R036_T34TCR_68_03.jpg",
+    "question": "<image>\nProvide a comprehensive description of the scene, including the location, seasonal context and land cover distribution.",
+    "ground_truth": "This satellite image, captured during the summer season in Serbia, showcases a landscape fully covered by arable land, spanning approximately 1,440,000 square meters, within the \"temperate, no dry season, hot summer\" climate zone.",
+    "prediction": "[0.0 0.0, 0.0 0.0, 0.0 0.0, 0.0 0.0]"
+  },
+  {
+    "image": "S2A_MSIL2A_20170613T101031_N9999_R022_T34VER_80_31.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the summer in Finland, showcases a predominantly forested landscape within the \"cold, no dry season, warm summer\" climate zone. The dominant feature is the expansive coniferous forest, covering approximately 922,000 square meters, which shares a border with a smaller mixed forest, spanning around 467,000 square meters and is distributed across four areas. Two of these areas are smaller, covering about 312,000 square meters and 142,000 square meters, while the other two are marginal. Additionally, a marginal area of land principally occupied by agriculture with significant areas of natural vegetation is present, covering less than 5% or 72,000 square meters of the total area. The coniferous forest borders both the mixed forest and this small patch of agricultural land.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2B_MSIL2A_20180201T093219_N9999_R136_T34TEP_84_40.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the winter season in Serbia, showcases a predominantly agricultural landscape within the \"temperate, no dry season, hot summer\" climate zone. The dominant feature is complex cultivation patterns, spanning approximately 1,218,000 square meters, which is distributed across two areas, one large (~969,000 sqm) and one smaller (~248,000 sqm). This complex cultivation patterns area shares a border with land principally occupied by agriculture, with significant areas of natural vegetation, covering around 223,000 square meters and is also distributed over two areas, one smaller (~220,000 sqm) and one marginal, covering less than 5% of the total area. The image highlights a mosaic of agricultural areas, with complex cultivation patterns being the most extensive, indicating a diverse and multifaceted agricultural practice in the region.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2B_MSIL2A_20170924T093019_N9999_R136_T35UMB_34_07.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the fall season in Lithuania, showcases a predominantly forested and pastoral landscape within the \"cold, no dry season, warm summer\" climate zone. The dominant feature is the expansive broad-leaved forest (~881,000 sqm), which borders a large area of pastures (~525,000 sqm). The pastures are distributed across two areas, with a larger section spanning around 499,000 square meters and a smaller marginal area. The broad-leaved forest also shares a border with a small patch of complex cultivation patterns, covering less than 5% (72,000 sqm) of the total area. The landscape presents a mix of forest and agricultural areas, highlighting the diverse ecosystems within this region.",
+    "prediction": "[0.0, 0.0, 1.0, 0.9]"
+  },
+  {
+    "image": "S2B_MSIL2A_20170914T093029_N9999_R136_T34TEQ_05_66.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the fall season in Serbia, showcases a predominantly agricultural landscape within the \"temperate, no dry season, hot summer\" climate zone. The dominant feature is arable land, spanning approximately 972,000 square meters, which is distributed across two areas: a larger section covering about 778,000 square meters and a smaller one covering around 194,000 square meters. This arable land shares a border with complex cultivation patterns, which occupy around 468,000 square meters. The complex cultivation patterns are also spread over two areas, with one larger section covering 468,000 square meters and a marginal area. The arable land borders the complex cultivation patterns, indicating a closely interwoven agricultural landscape.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2B_MSIL2A_20180515T094029_N9999_R036_T35VNJ_56_87.jpg",
+    "question": "<image>\nDescribe the image, noting where it was captured, the season, and the distribution of land cover types.",
+    "ground_truth": "This satellite image, captured during the spring season in Finland, showcases a predominantly aquatic landscape within the \"cold, no dry season, warm summer\" climate zone. The dominant feature is a large body of inland waters (~1,345,000 sqm). Adjacent to the inland waters is a smaller area of coniferous forest (~95,000 sqm). The inland waters border the coniferous forest, highlighting the varied ecosystems present in this region.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2A_MSIL2A_20171221T112501_N9999_R037_T29SND_34_90.jpg",
+    "question": "<image>\nProvide a comprehensive description of the scene, including the location, seasonal context and land cover distribution.",
+    "ground_truth": "This satellite image, captured during the winter season in Portugal, showcases a predominantly agricultural and forested landscape within the \"temperate, dry summer, hot summer\" climate zone. The dominant feature is the expansive agro-forestry areas, covering approximately 951,000 square meters, which borders a large mixed forest, spanning around 455,000 square meters and divided into two areas, one of which is a larger area (~423,000 sqm) and the other is a marginal area. A small patch of broad-leaved forest, accounting for less than 5% of the total area (72,000 sqm), is situated at the margins, adjacent to both the agro-forestry areas and the mixed forest. The agro-forestry areas also shares a border with the broad-leaved forest, while the mixed forest is adjacent to the broad-leaved forest, highlighting the diverse ecosystem of the region.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2B_MSIL2A_20170831T095029_N9999_R079_T33UXP_03_81.jpg",
+    "question": "<image>\nDescribe the image, specifying the region, climate, and landscape features.",
+    "ground_truth": "This satellite image, captured during the winter season in Austria, showcases a diverse landscape within the \"temperate, no dry season, warm summer\" climate zone. The landscape is dominated by arable land (~701,000 sqm) and urban fabric (~656,000 sqm), which are adjacent to each other. The urban fabric is also next to a smaller body of inland waters (~84,000 sqm). The arable land borders the urban fabric, and the urban fabric is adjacent to the inland waters, indicating a varied landscape that includes areas of human settlement, agriculture, and water bodies.",
+    "prediction": "[0"
+  },
+  {
+    "image": "S2B_MSIL2A_20180421T114349_N9999_R123_T29UPU_01_22.jpg",
+    "question": "<image>\nProvide a comprehensive description of the scene, including the location, seasonal context and land cover distribution.",
+    "ground_truth": "This satellite image, captured during the spring season in Ireland, showcases a landscape dominated by pastures and urban areas within the \"temperate, no dry season, warm summer\" climate zone. The pastures, covering approximately 1,010,000 square meters, are the primary feature and are distributed across two distinct areas: a larger section spanning around 751,000 square meters and a smaller section of about 259,000 square meters. These pastures share a border with urban fabric (~430,000 sqm).",
+    "prediction": "[0.0 0.0, 0.1 0.99]"
+  },
+  {
+    "image": "S2B_MSIL2A_20170924T093019_N9999_R136_T35VNH_11_84.jpg",
+    "question": "<image>\nDescribe the image, specifying the region, climate, and landscape features.",
+    "ground_truth": "This satellite image, captured during the fall season in Finland, showcases a landscape entirely dominated by marine waters (~1,440,000 sqm). The image presents a vast expanse of water, with no visible landmasses or other features, set within the \"cold, no dry season, warm summer\" climate zone.",
+    "prediction": "[0"
+  }
+]
