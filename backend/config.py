@@ -1,1 +1,1 @@
-# Backend settings - Akshaya
+APP_NAME = "SatQuery AI Backend"
