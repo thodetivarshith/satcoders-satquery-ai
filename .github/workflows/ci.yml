@@ -1,4 +1,4 @@
-# CI/CD piname: Performance and Robustness Testing
+name: Performance and Robustness Testing
 
 on:
   push:
@@ -13,7 +13,6 @@ on:
 jobs:
   performance-test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,4 +29,4 @@ jobs:
 
       - name: Run performance and robustness test
         run: |
-          python data_processing/test_data.pypeline placeholder
+          python data_processing/test_data.py
