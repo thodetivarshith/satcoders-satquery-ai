@@ -53,6 +53,22 @@ From the project root directory, run:
 ```bash
 python -m evaluation.benchmark
 
+## Continuous Integration
+
+The project uses GitHub Actions to automatically run the evaluation test suite on pushes and pull requests.
+
+The CI workflow:
+
+1. Checks out the repository
+2. Sets up Python 3.11
+3. Installs required dependencies
+4. Runs the evaluation tests
+5. Reports test success or failure
+
+Workflow file:
+
+.github/workflows/ci.yml
+
 ## Evaluation Project Structure
 
 The main evaluation-related files are organized as follows:
