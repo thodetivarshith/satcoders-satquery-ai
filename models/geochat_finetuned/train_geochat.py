@@ -331,12 +331,12 @@ def train() -> None:
 
     images_dir = os.environ.get(
         "GEOCHAT_IMAGES_DIR",
-        "/content/satcoders-satquery-ai/models/geochat_finetuned/images",
+        "/kaggle/working/satcoders-satquery-ai/models/geochat_finetuned/images",
     )
 
     conversations_json = os.environ.get(
         "GEOCHAT_CONVERSATIONS_JSON",
-        "/content/satcoders-satquery-ai/models/geochat_finetuned/conversations.json",
+        "/kaggle/working/satcoders-satquery-ai/models/geochat_finetuned/conversations.json",
     )
 
     # --------------------------------------------------------

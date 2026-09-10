@@ -90,7 +90,34 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                 )
                 del non_lora_trainables[position_key]
 
-            model.load_state_dict(non_lora_trainables, strict=False)
+            pos_key = (
+    "model.vision_tower.vision_tower."
+    "vision_model.embeddings.position_embedding.weight"
+)
+if pos_key in non_lora_trainables:
+    checkpoint_pos = non_lora_trainables[pos_key]
+    if checkpoint_pos.shape[0] == 1297:
+        vision_model = (
+            model.get_model()
+            .get_vision_tower()
+            .vision_tower
+        )
+        embeddings = vision_model.vision_model.embeddings
+        import torch.nn as nn
+        embeddings.position_embedding = nn.Embedding(
+            1297, checkpoint_pos.shape[1]
+        ).to(
+            device=checkpoint_pos.device,
+            dtype=checkpoint_pos.dtype
+        )
+        embeddings.position_ids = torch.arange(
+            1297,
+            device=embeddings.position_ids.device
+        ).expand((1, -1))
+        vision_model.config.image_size = 504
+        vision_model.vision_model.config.image_size = 504
+
+model.load_state_dict(non_lora_trainables, strict=False)
 
             from peft import PeftModel
             print('Loading LoRA weights...')
