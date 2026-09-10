@@ -1,1 +1,5 @@
-# Add backend dependencies here
+fastapi
+uvicorn
+python-multipart
+pillow
+numpy
