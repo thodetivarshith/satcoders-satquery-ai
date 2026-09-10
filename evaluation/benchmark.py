@@ -1,3 +1,4 @@
+import json
 from evaluation.metrics import(
     calculate_accuracy,
     calculate_precision,
@@ -18,9 +19,23 @@ def run_benchmark(actual, predicted):
         "f1_score": f1
     }
 
+def print_benchmark_results(results):
+    print("\n===== SatQuery AI Benchmark Results =====")
+    print(f"Accuracy: {results['accuracy']:.4f}")
+    print(f"Precision: {results['precision']:.4f}")
+    print(f"Recall: {results['recall']:.4f}")
+    print(f"F1 Score: {results['f1_score']:.4f}")
+
+def save_benchmark_results(results):
+    with open("evaluation/results/benchmark_results.json", "w") as file:
+        json.dump(results, file, indent=4)
+
 if __name__ == "__main__":
     actual = [1, 0, 1, 1]
     predicted = [1, 0, 0, 1]
 
     benchmark_results = run_benchmark(actual, predicted)
-    print(benchmark_results)
+
+    print_benchmark_results(benchmark_results)
+
+    save_benchmark_results(benchmark_results)
