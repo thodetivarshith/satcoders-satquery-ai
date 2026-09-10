@@ -35,7 +35,7 @@ export class AnalysisError extends Error {
  */
 export async function analyzeSatelliteImage(file, query, options = {}) {
   const formData = new FormData();
-  formData.append("image", file);
+  formData.append("file", file);
   formData.append("query", query);
 
   try {
