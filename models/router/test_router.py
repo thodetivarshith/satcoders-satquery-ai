@@ -3,7 +3,7 @@
 Automated tests for SatQuery AI Query Classifier.
 """
 
-from query_classifier import classify_query
+from .query_classifier import classify_query
 
 
 TEST_CASES = [
