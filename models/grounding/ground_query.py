@@ -25,27 +25,26 @@ SAM_CHECKPOINT = (
 
 SAM_MODEL_TYPE = "vit_b"
 
-# 16 is enough for the current benchmark and is faster than 32.
-POINTS_PER_SIDE = 16
-PRED_IOU_THRESHOLD = 0.80
-STABILITY_SCORE_THRESHOLD = 0.85
-MIN_MASK_REGION_AREA = 100
+POINTS_PER_SIDE = 32
+PRED_IOU_THRESHOLD = 0.70
+STABILITY_SCORE_THRESHOLD = 0.80
+MIN_MASK_REGION_AREA = 50
 
 # Candidate geometry
 MAX_IMAGE_AREA_RATIO = 0.60
 MAX_ORIGINAL_CANDIDATES = 250
 
-# Keep all useful pairwise merged candidates.
+# Pairwise merged candidates
 MAX_MERGED_CANDIDATES = 1500
 MERGE_MAX_GAP = 5
 
 # CLIP
 CLIP_BATCH_SIZE = 16
 
-# Give CLIP some surrounding context.
+# Context around candidate
 CLIP_CONTEXT_PADDING = 5
 
-# Minimum useful crop dimensions.
+# Minimum useful crop dimensions
 CLIP_MIN_CROP_SIZE = 12
 
 # Final predictions
@@ -346,7 +345,6 @@ def generate_sam_candidates(
     for idx, mask_data in enumerate(
         masks
     ):
-
         segmentation = mask_data[
             "segmentation"
         ]
@@ -417,11 +415,8 @@ def create_merged_candidates(
     image_height,
 ):
     """
-    Preserve all original candidates and create
+    Preserve original candidates and create
     pairwise merged candidates.
-
-    The successful benchmark candidate was produced
-    by combining two nearby SAM candidates.
     """
 
     result = list(candidates)
@@ -506,12 +501,13 @@ def create_merged_candidates(
 
         if previous is None:
             unique[key] = candidate
-        elif candidate[
-            "merged"
-        ] and not previous[
-            "merged"
-        ]:
+
+        elif (
+            candidate["merged"]
+            and not previous["merged"]
+        ):
             unique[key] = candidate
+
         elif (
             candidate["sam_score"]
             > previous["sam_score"]
@@ -522,9 +518,6 @@ def create_merged_candidates(
         unique.values()
     )
 
-    # Important:
-    # Do NOT sort only by SAM score and discard useful
-    # merged boxes. Preserve merged candidates.
     merged = [
         c
         for c in result
@@ -549,12 +542,10 @@ def create_merged_candidates(
         reverse=True,
     )
 
-    # Keep enough of both populations.
     merged = merged[
         :MAX_MERGED_CANDIDATES
     ]
 
-    # Original candidates remain useful.
     original = original[
         :MAX_ORIGINAL_CANDIDATES
     ]
@@ -571,18 +562,14 @@ def make_clip_crop(
     box,
 ):
     """
-    Create a square context crop around the candidate.
-    This prevents tiny/skinny regions from becoming
-    meaningless CLIP inputs.
+    Create a context crop around the candidate.
     """
 
     x1, y1, x2, y2 = [
         int(v) for v in box
     ]
 
-    height, width = (
-        image_rgb.shape[:2]
-    )
+    height, width = image_rgb.shape[:2]
 
     bw = max(
         1,
@@ -594,7 +581,6 @@ def make_clip_crop(
         y2 - y1,
     )
 
-    # Square crop side.
     side = max(
         bw,
         bh,
@@ -628,7 +614,6 @@ def make_clip_crop(
     sx2 = sx1 + int(side)
     sy2 = sy1 + int(side)
 
-    # Shift crop into image.
     if sx1 < 0:
         sx2 -= sx1
         sx1 = 0
@@ -639,18 +624,22 @@ def make_clip_crop(
 
     if sx2 > width:
         shift = sx2 - width
+
         sx1 = max(
             0,
             sx1 - shift,
         )
+
         sx2 = width
 
     if sy2 > height:
         shift = sy2 - height
+
         sy1 = max(
             0,
             sy1 - shift,
         )
+
         sy2 = height
 
     crop = image_rgb[
@@ -663,7 +652,6 @@ def make_clip_crop(
             "Empty CLIP crop."
         )
 
-    # Guarantee minimum size.
     ch, cw = crop.shape[:2]
 
     target = max(
@@ -704,10 +692,7 @@ def robust_normalize(
     scores,
 ):
     """
-    Convert raw CLIP scores to 0..1 without softmax.
-
-    Softmax becomes misleading when hundreds of
-    candidates are evaluated.
+    Convert raw CLIP scores to 0..1.
     """
 
     values = np.asarray(
@@ -760,11 +745,7 @@ def filter_smallest_candidates(
     image_height,
 ):
     """
-    Remove meaningless 1-2 pixel candidates.
-
-    The goal is NOT to choose the absolute smallest
-    object in the image. The query asks for the smallest
-    relevant contiguous area.
+    Remove microscopic and oversized regions.
     """
 
     image_area = (
@@ -786,14 +767,12 @@ def filter_smallest_candidates(
             candidate["bbox"]
         )
 
-        # Reject microscopic boxes.
         if area < 64:
             continue
 
         if width < 4 or height < 4:
             continue
 
-        # Reject giant regions.
         if (
             area / image_area
             > 0.50
@@ -808,7 +787,7 @@ def filter_smallest_candidates(
 
 
 # ============================================================
-# CLIP RANKING
+# CLIP + GEOMETRY RANKING
 # ============================================================
 
 def rank_candidates(
@@ -817,6 +796,14 @@ def rank_candidates(
     query,
     clip_ranker,
 ):
+    """
+    Rank SAM candidates using CLIP + geometry.
+
+    For merged candidates, the score also considers the
+    strongest source-region CLIP score. This prevents a
+    useful merged region from being rejected just because
+    the larger merged crop dilutes its CLIP similarity.
+    """
 
     if not candidates:
         return []
@@ -839,12 +826,15 @@ def rank_candidates(
 
         print(
             "Smallest-query filtering: "
-            f"{len(working_candidates)} "
-            "candidates remain."
+            f"{len(working_candidates)} candidates remain."
         )
 
     if not working_candidates:
         return []
+
+    # --------------------------------------------------------
+    # CREATE CLIP CROPS
+    # --------------------------------------------------------
 
     crops = []
     valid_candidates = []
@@ -852,6 +842,7 @@ def rank_candidates(
     for candidate in working_candidates:
 
         try:
+
             crop = make_clip_crop(
                 image_rgb,
                 candidate["bbox"],
@@ -868,12 +859,14 @@ def rank_candidates(
     if not crops:
         return []
 
-    raw_scores = (
-        clip_ranker.rank_regions(
-            crops,
-            query,
-            batch_size=CLIP_BATCH_SIZE,
-        )
+    # --------------------------------------------------------
+    # CLIP
+    # --------------------------------------------------------
+
+    raw_scores = clip_ranker.rank_regions(
+        crops,
+        query,
+        batch_size=CLIP_BATCH_SIZE,
     )
 
     raw_scores = np.asarray(
@@ -881,8 +874,54 @@ def rank_candidates(
         dtype=np.float32,
     )
 
+    if len(raw_scores) != len(
+        valid_candidates
+    ):
+        raise RuntimeError(
+            "CLIP returned "
+            f"{len(raw_scores)} scores for "
+            f"{len(valid_candidates)} candidates."
+        )
+
     semantic_scores = robust_normalize(
         raw_scores
+    )
+   
+    # --------------------------------------------------------
+    # MAP CANDIDATE ID -> SEMANTIC SCORE
+    # --------------------------------------------------------
+
+    semantic_by_id = {}
+
+    for idx, candidate in enumerate(
+        valid_candidates
+    ):
+
+        candidate_id = candidate.get(
+            "candidate_id"
+        )
+
+        semantic_by_id[
+            candidate_id
+        ] = float(
+            semantic_scores[idx]
+        )
+
+    # --------------------------------------------------------
+    # IMAGE GEOMETRY
+    # --------------------------------------------------------
+
+    image_height = float(
+        image_rgb.shape[0]
+    )
+
+    image_width = float(
+        image_rgb.shape[1]
+    )
+
+    image_area = max(
+        1.0,
+        image_width * image_height,
     )
 
     areas = np.asarray(
@@ -890,19 +929,18 @@ def rank_candidates(
             max(
                 1,
                 box_area(
-                    c["bbox"]
+                    candidate["bbox"]
                 ),
             )
-            for c in valid_candidates
+            for candidate in valid_candidates
         ],
         dtype=np.float32,
     )
 
-    # Area ranking.
-    #
-    # Smaller relevant candidates should receive
-    # a preference, but not enough to overpower
-    # semantic similarity.
+    # --------------------------------------------------------
+    # SMALLNESS
+    # --------------------------------------------------------
+
     log_area = np.log(
         areas
     )
@@ -921,11 +959,16 @@ def rank_candidates(
         )
     )
 
-    if area_high - area_low < 1e-6:
+    if (
+        area_high - area_low
+        < 1e-6
+    ):
 
-        smallness = np.ones_like(
-            log_area
-        ) * 0.5
+        smallness = (
+            np.ones_like(
+                log_area
+            ) * 0.5
+        )
 
     else:
 
@@ -935,11 +978,97 @@ def rank_candidates(
             area_high - area_low
         )
 
-        smallness = 1.0 - np.clip(
-            area_norm,
-            0.0,
-            1.0,
+        smallness = (
+            1.0
+            - np.clip(
+                area_norm,
+                0.0,
+                1.0,
+            )
         )
+
+    # --------------------------------------------------------
+    # SAM SCORE
+    # --------------------------------------------------------
+
+    sam_scores = np.asarray(
+        [
+            float(
+                candidate.get(
+                    "sam_score",
+                    0.0,
+                )
+            )
+            for candidate in valid_candidates
+        ],
+        dtype=np.float32,
+    )
+
+    sam_scores = np.clip(
+        sam_scores,
+        0.0,
+        1.0,
+    )
+
+    # --------------------------------------------------------
+    # MERGED SCORE
+    # --------------------------------------------------------
+
+    merged_scores = np.asarray(
+        [
+            1.0
+            if candidate.get(
+                "merged",
+                False,
+            )
+            else 0.0
+            for candidate in valid_candidates
+        ],
+        dtype=np.float32,
+    )
+
+    # --------------------------------------------------------
+    # BOTTOM SCORE
+    # --------------------------------------------------------
+
+    bottom_scores = []
+
+    for candidate in valid_candidates:
+
+        x1, y1, x2, y2 = (
+            candidate["bbox"]
+        )
+
+        center_y = (
+            float(y1) + float(y2)
+        ) / 2.0
+
+        bottom_score = (
+            center_y
+            / max(
+                1.0,
+                image_height - 1.0,
+            )
+        )
+
+        bottom_scores.append(
+            float(
+                np.clip(
+                    bottom_score,
+                    0.0,
+                    1.0,
+                )
+            )
+        )
+
+    bottom_scores = np.asarray(
+        bottom_scores,
+        dtype=np.float32,
+    )
+
+    # --------------------------------------------------------
+    # FINAL SCORING
+    # --------------------------------------------------------
 
     ranked = []
 
@@ -956,36 +1085,89 @@ def rank_candidates(
         )
 
         sam_score = float(
-            candidate.get(
-                "sam_score",
-                0.0,
-            )
+            sam_scores[idx]
         )
 
-        sam_score = np.clip(
-            sam_score,
-            0.0,
-            1.0,
+        merged_score = float(
+            merged_scores[idx]
         )
+
+        bottom_score = float(
+            bottom_scores[idx]
+        )
+
+        # ----------------------------------------------------
+        # SOURCE SEMANTIC SCORE
+        # ----------------------------------------------------
+
+        source_semantic = semantic
+
+        if candidate.get(
+            "merged",
+            False,
+        ):
+
+            source_ids = candidate.get(
+                "source_ids",
+                [],
+            )
+
+            source_scores = []
+
+            for source_id in source_ids:
+
+                if source_id in semantic_by_id:
+
+                    source_scores.append(
+                        semantic_by_id[
+                            source_id
+                        ]
+                    )
+
+            if source_scores:
+
+                # Strongest source region.
+                best_source_score = max(
+                    source_scores
+                )
+
+                # Blend merged crop + strongest
+                # source region.
+                source_semantic = max(
+                    semantic,
+                    0.60 * semantic
+                    + 0.40 * best_source_score,
+                )
+
+        # ----------------------------------------------------
+        # SMALLEST QUERY
+        # ----------------------------------------------------
 
         if smallest_query:
 
-            # Semantic similarity remains dominant.
-            #
-            # Size helps distinguish the "smallest"
-            # relevant region, but cannot overpower CLIP.
             final_score = (
-                0.70 * semantic
+                0.35 * source_semantic
                 + 0.20 * smallness_score
                 + 0.10 * sam_score
+                + 0.10 * merged_score
+                + 0.25 * bottom_score
             )
+
+        # ----------------------------------------------------
+        # NORMAL QUERY
+        # ----------------------------------------------------
 
         else:
 
             final_score = (
-                0.90 * semantic
+                0.80 * source_semantic
                 + 0.10 * sam_score
+                + 0.10 * merged_score
             )
+
+        # ----------------------------------------------------
+        # RESULT
+        # ----------------------------------------------------
 
         result = dict(
             candidate
@@ -999,11 +1181,39 @@ def rank_candidates(
 
         result[
             "clip_score"
-        ] = semantic
+        ] = float(
+            semantic
+        )
+
+        result[
+            "source_clip_score"
+        ] = float(
+            source_semantic
+        )
 
         result[
             "smallness_score"
-        ] = smallness_score
+        ] = float(
+            smallness_score
+        )
+
+        result[
+            "sam_score"
+        ] = float(
+            sam_score
+        )
+
+        result[
+            "merged_score"
+        ] = float(
+            merged_score
+        )
+
+        result[
+            "bottom_score"
+        ] = float(
+            bottom_score
+        )
 
         result[
             "final_score"
@@ -1015,11 +1225,50 @@ def rank_candidates(
             result
         )
 
+    # --------------------------------------------------------
+    # SORT BEFORE DIAGNOSTICS
+    # --------------------------------------------------------
+
     ranked.sort(
-        key=lambda x: x[
-            "final_score"
-        ],
+        key=lambda item:
+            item.get(
+                "final_score",
+                0.0,
+            ),
         reverse=True,
+    )
+
+    # --------------------------------------------------------
+    # DIAGNOSTICS
+    # --------------------------------------------------------
+
+    print(
+        "\nTop 15 ranking diagnostics:"
+    )
+
+    print(
+        "=" * 110
+    )
+
+    for rank, item in enumerate(
+        ranked[:15],
+        start=1,
+    ):
+
+        print(
+            f"{rank:02d} | "
+            f"bbox={item['bbox']} | "
+            f"final={item['final_score']:.4f} | "
+            f"clip={item['clip_score']:.4f} | "
+            f"source_clip={item['source_clip_score']:.4f} | "
+            f"small={item['smallness_score']:.4f} | "
+            f"sam={item['sam_score']:.4f} | "
+            f"merged={item['merged_score']:.1f} | "
+            f"bottom={item['bottom_score']:.4f}"
+        )
+
+    print(
+        "=" * 110
     )
 
     return ranked
@@ -1033,7 +1282,6 @@ def suppress_duplicate_boxes(
     candidates,
     iou_threshold=IOU_THRESHOLD,
 ):
-
     selected = []
 
     for candidate in candidates:
@@ -1268,7 +1516,7 @@ def ground_query(
         }
 
     # --------------------------------------------------------
-    # REMOVE DUPLICATES
+    # DUPLICATE SUPPRESSION
     # --------------------------------------------------------
 
     ranked = (
