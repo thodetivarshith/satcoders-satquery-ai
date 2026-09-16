@@ -1,1 +1,0 @@
-// Query component - Adi

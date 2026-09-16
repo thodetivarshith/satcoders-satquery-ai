@@ -25,3 +25,8 @@ test_first_patch_v2.jpg
 
 # Local environment / generated files
 *.pkl
+
+# Python virtual environments
+.venv/
+.venv310/
+
