@@ -3,7 +3,7 @@
 // (and drifting) across components.
 
 export function formatBytes(bytes) {
-  if (!bytes && bytes !== 0) return "—";
+  if (!bytes && bytes !== 0) return "â€”";
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];
   let value = bytes / 1024;
@@ -20,12 +20,12 @@ export function formatConfidencePercent(value) {
   if (Number.isNaN(num)) return 0;
   // Tolerate a confidence already expressed as 0-100 as well as 0-1.
   const normalized = num > 1 ? num / 100 : num;
-  return Math.round(clamp(normalized, 0, 1) * 100);
+  return Math.round(clamp(normalized, 0, 1) * 10000) / 100;
 }
 
 export function formatDuration(ms) {
   const num = Number(ms);
-  if (Number.isNaN(num) || num < 0) return "—";
+  if (Number.isNaN(num) || num < 0) return "â€”";
   if (num < 1000) return `${Math.round(num)} ms`;
   return `${(num / 1000).toFixed(2)} s`;
 }
@@ -60,5 +60,5 @@ export function clamp(value, min, max) {
 
 export function truncate(text, maxLength) {
   if (!text) return "";
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}â€¦` : text;
 }

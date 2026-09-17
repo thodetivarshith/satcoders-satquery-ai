@@ -7,7 +7,7 @@ const ACCEPTED_EXTENSIONS = /\.(png|jpe?g|tif|tiff)$/i;
 
 /**
  * The main analysis viewport: upload target, satellite image preview,
- * zoom/pan/reset/fullscreen controls, and — once a result exists — the
+ * zoom/pan/reset/fullscreen controls, and â€” once a result exists â€” the
  * interactive bounding-box evidence overlay.
  */
 function SatelliteViewer({
@@ -128,7 +128,7 @@ function SatelliteViewer({
             onClick={onClear}
             className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-text-muted transition hover:border-optical/50 hover:text-text"
           >
-            <span aria-hidden="true">←</span> Back to upload
+            <span aria-hidden="true">â†</span> Back to upload
           </button>
         )}
       </div>
@@ -149,12 +149,12 @@ function SatelliteViewer({
             className="flex h-12 w-12 items-center justify-center rounded-full border border-border-strong text-text-muted"
             aria-hidden="true"
           >
-            ↑
+            â†‘
           </div>
           <p className="text-sm font-medium text-text">
             Drag a satellite image here
           </p>
-          <p className="text-xs text-text-muted">or click to browse · PNG, JPG, GeoTIFF</p>
+          <p className="text-xs text-text-muted">or click to browse Â· PNG, JPG, GeoTIFF</p>
           {uploadWarning && (
             <p className="text-xs text-danger" role="alert">
               {uploadWarning}
@@ -248,7 +248,7 @@ function SatelliteViewer({
               </>
             )}
 
-            {/* Vignette — subtle depth cue at the frame edges, not a decorative wash */}
+            {/* Vignette â€” subtle depth cue at the frame edges, not a decorative wash */}
             <div
               className="pointer-events-none absolute inset-0"
               style={{
@@ -257,7 +257,7 @@ function SatelliteViewer({
               aria-hidden="true"
             />
 
-            {/* Reticle frame — the viewport reads as an analysis instrument, not a photo frame */}
+            {/* Reticle frame â€” the viewport reads as an analysis instrument, not a photo frame */}
             <Corner className="left-3 top-3 border-l border-t" />
             <Corner className="right-3 top-3 border-r border-t" />
             <Corner className="bottom-3 left-3 border-b border-l" />
@@ -270,7 +270,7 @@ function SatelliteViewer({
                 aria-label="Back to upload"
                 className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-border-strong bg-[rgba(10,12,16,0.85)] px-2.5 py-1.5 text-[11px] font-medium text-text-muted backdrop-blur-md transition hover:border-optical/60 hover:text-optical"
               >
-                <span aria-hidden="true">←</span> Back
+                <span aria-hidden="true">â†</span> Back
               </button>
             )}
 
@@ -279,22 +279,22 @@ function SatelliteViewer({
                 className="absolute left-3 bottom-3 rounded bg-[rgba(10,12,16,0.75)] px-2 py-1 text-[10px] text-text-muted"
                 style={{ fontFamily: "var(--font-mono)" }}
               >
-                {dimensions.width}×{dimensions.height}px · {Math.round(zoom * 100)}%
+                {dimensions.width}Ã—{dimensions.height}px Â· {Math.round(zoom * 100)}%
               </div>
             )}
 
             <div className="absolute right-3 bottom-3 flex overflow-hidden rounded-lg border border-border-strong bg-[rgba(10,12,16,0.85)] backdrop-blur-md">
               <ViewportButton onClick={zoomOut} label="Zoom out">
-                −
+                âˆ’
               </ViewportButton>
               <ViewportButton onClick={zoomIn} label="Zoom in">
                 +
               </ViewportButton>
               <ViewportButton onClick={resetView} label="Reset view">
-                ⟲
+                âŸ²
               </ViewportButton>
               <ViewportButton onClick={toggleFullscreen} label="Toggle fullscreen">
-                {isFullscreen ? "⤡" : "⤢"}
+                {isFullscreen ? "â¤¡" : "â¤¢"}
               </ViewportButton>
             </div>
           </div>

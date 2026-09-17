@@ -18,7 +18,9 @@ GEOCHAT_ADAPTER_PATH = os.environ.get(
 )
 
 MODEL_NAME = "geochat-7B-lora"
-GEOCHAT_REPO_PATH = "/kaggle/working/GeoChat-main"
+GEOCHAT_REPO_PATH = str(
+    Path(__file__).resolve().parents[2] / "GeoChat"
+)
 
 _tokenizer = None
 _model = None

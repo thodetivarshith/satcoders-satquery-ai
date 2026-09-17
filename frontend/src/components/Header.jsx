@@ -13,7 +13,7 @@ function useUtcClock() {
 /**
  * Header keeps its own lightweight backend reachability check so the
  * status pill reflects reality instead of always saying "online."
- * A failed check never blocks the app — demo mode still works offline.
+ * A failed check never blocks the app â€” demo mode still works offline.
  */
 function Header({ onToggleHistory, historyCount }) {
   const [backendStatus, setBackendStatus] = useState("checking");
@@ -91,9 +91,9 @@ function Header({ onToggleHistory, historyCount }) {
           </div>
 
           <div className="hidden rounded-full border border-border bg-surface-raised/60 px-3 py-1.5 text-[11px] text-text-muted sm:block">
-            GeoChat v1
+            SatQuery AI
             <span className="mx-1.5 text-text-faint">/</span>
-            Remote Sensing AI
+            AI-Powered Geospatial Intelligence
           </div>
 
           <div

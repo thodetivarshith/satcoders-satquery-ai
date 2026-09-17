@@ -1,4 +1,4 @@
-// SatQuery AI — API client.
+// SatQuery AI â€” API client.
 // Talks to the FastAPI backend at POST /api/analyze.
 // Base URL is environment-configurable (Vite exposes VITE_-prefixed vars).
 
@@ -6,10 +6,11 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const ANALYZE_PATH = "/api/analyze";
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS =10 * 60_000;
 
 const client = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_BASE_URL
+  ,
   timeout: REQUEST_TIMEOUT_MS,
 });
 

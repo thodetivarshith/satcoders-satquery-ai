@@ -10,7 +10,7 @@ Routes a user query to the appropriate downstream task:
 
 from typing import Dict
 
-from query_classifier import classify_query
+from .query_classifier import classify_query
 
 
 class QueryRouter:

@@ -59,7 +59,7 @@ function ResultPanel({ result, selectedBoxIndex, onSelectBox, onCopied }) {
             </span>
           </div>,
           <Stat key="task" label="Task" value={formatTaskType(result.task_type)} />,
-          <Stat key="model" label="Model" value="GeoChat v1" sub="BigEarthNet" />,
+          <Stat key="model" label="Model" value={result.metadata?.model || "Unknown"} sub={result.task_type === "grounding" ? "SAM + CLIP" : result.task_type === "vqa" ? "GeoChat" : "SatQuery AI"} />,
           <Stat key="processing" label="Processing" value={formatDuration(processingMs)} />,
         ].map((node, index) => (
           <div key={node.key} className="rise-in" style={{ animationDelay: `${index * 70}ms` }}>
